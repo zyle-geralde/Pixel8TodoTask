@@ -23,42 +23,51 @@
         </div>
       </div>
 
-      
-
       <!-- Task Cards -->
       <div class="q-mt-lg">
         <q-card
           v-for="task in tasks"
           :key="task.id"
           class="q-mb-md"
+          bordered
         >
-          <q-card-section class="row items-center justify-between">
+          
+          <q-banner 
+            v-if="task._updated" 
+            class="bg-green-2 text-green-10" 
+            dense 
+            rounded
+          >
+            Task updated successfully!
+          </q-banner>
+
+          <q-card-section>
             <q-input 
               v-model="task.title" 
+              label="Task Title"
+              outlined 
               dense 
-              borderless 
-              style="flex: 1;"
+              clearable
             />
-            <div class="q-gutter-sm">
-              <q-btn 
-                flat 
-                dense 
-                icon="save" 
-                color="green" 
-                @click="updateTask(task)" 
-              />
-              <q-btn 
-                flat 
-                dense 
-                icon="delete" 
-                color="red" 
-                @click="deleteTask(task.id)" 
-              />
-            </div>
           </q-card-section>
+
+          <q-card-actions align="right">
+            <q-btn 
+              color="primary" 
+              label="Update Task" 
+              @click="updateTask(task)"
+              icon="save"
+            />
+            <q-btn 
+              color="red" 
+              flat 
+              label="Delete" 
+              @click="deleteTask(task.id)" 
+              icon="delete"
+            />
+          </q-card-actions>
         </q-card>
       </div>
-
 
     </div>
   </q-page>
@@ -75,8 +84,8 @@ const newTask = ref({ title: '', completed: false, userId: 1 })
 
 const fetchTasks = async () => {
   try {
-    const res = await axios.get(`${API_URL}?_limit=50`)
-    tasks.value = res.data
+    const res = await axios.get(`${API_URL}?_limit=10`) 
+    tasks.value = res.data.map(task => ({ ...task, _updated: false }))
   } catch (error) {
     console.error('Error fetching tasks:', error)
   }
@@ -90,7 +99,7 @@ const addTask = async () => {
       completed: false,
       userId: 1
     })
-    tasks.value.unshift(res.data)
+    tasks.value.unshift({ ...res.data, _updated: false })
     newTask.value.title = ''
   } catch (error) {
     console.error('Error adding task:', error)
@@ -98,21 +107,20 @@ const addTask = async () => {
 }
 
 const updateTask = async (task) => {
-  const index = tasks.value.findIndex((t) => t.id === task.id);
-  if (index !== -1) {
-    tasks.value[index].title = task.title;
-  }
+  const index = tasks.value.findIndex((t) => t.id === task.id)
+  if (index === -1) return
 
   try {
-    await axios.put(`${API_URL}/${task.id}`, {
-      ...task,
-    });
-    console.log('Task updated:', task.id);
-  } catch (error) {
-    console.error('Error updating task:', error);
+    await axios.put(`${API_URL}/${task.id}`, { ...task })
+    tasks.value[index]._updated = true
 
+    setTimeout(() => {
+      tasks.value[index]._updated = false
+    }, 2000)
+  } catch (error) {
+    console.error('Error updating task:', error)
   }
-};
+}
 
 const deleteTask = async (id) => {
   try {
