@@ -2,28 +2,25 @@
   <q-page padding>
     <div class="q-pa-md" style="max-width: 600px; margin: auto">
 
-      <!-- Form Area -->
       <div class="row q-col-gutter-md items-center">
         <div class="col">
-          <q-input 
-            v-model="newTask.title" 
-            label="Task Name" 
-            outlined 
-            dense 
-            clearable
+          <q-input
+            v-model="newTask.title"
+            label="Task Name"
+            outlined
+            dense
           />
         </div>
         <div class="col-auto">
-          <q-btn 
-            label="Add" 
-            color="primary" 
-            @click="addTask" 
-            icon="add" 
+          <q-btn
+            label="Add"
+            color="primary"
+            @click="addTask"
+            icon="add"
           />
         </div>
       </div>
 
-      <!-- Task Cards -->
       <div class="q-mt-lg">
         <q-card
           v-for="task in tasks"
@@ -31,38 +28,58 @@
           class="q-mb-md"
           bordered
         >
-          
-          <q-banner 
-            v-if="task._updated" 
-            class="bg-green-2 text-green-10" 
-            dense 
+
+          <q-banner
+            v-if="task._updated"
+            class="bg-green-2 text-green-10"
+            dense
             rounded
           >
             Task updated successfully!
           </q-banner>
 
-          <q-card-section>
-            <q-input 
-              v-model="task.title" 
-              label="Task Title"
-              outlined 
-              dense 
-              clearable
+          <q-card-section v-if="!task._isEditing">
+            <div class="text-h6">{{ task.title }}</div>
+          </q-card-section>
+
+          <q-card-section v-else>
+            <q-input
+              v-model="task.title"
+              label="Edit Task Title"
+              outlined
+              dense
             />
           </q-card-section>
 
           <q-card-actions align="right">
-            <q-btn 
-              color="primary" 
-              label="Update Task" 
-              @click="updateTask(task)"
-              icon="save"
+            <q-btn
+              v-if="!task._isEditing"
+              color="primary"
+              label="Update Task"
+              @click="startEdit(task)"
+              icon="edit"
             />
-            <q-btn 
-              color="red" 
-              flat 
-              label="Delete" 
-              @click="deleteTask(task.id)" 
+            <template v-else>
+              <q-btn
+                color="primary"
+                label="Save"
+                @click="updateTask(task)"
+                icon="save"
+              />
+              <q-btn
+                color="grey"
+                flat
+                label="Cancel"
+                @click="cancelEdit(task)"
+                icon="cancel"
+              />
+            </template>
+            <q-btn
+              v-if="!task._isEditing"
+              color="red"
+              flat
+              label="Delete"
+              @click="deleteTask(task.id)"
               icon="delete"
             />
           </q-card-actions>
@@ -84,8 +101,8 @@ const newTask = ref({ title: '', completed: false, userId: 1 })
 
 const fetchTasks = async () => {
   try {
-    const res = await axios.get(`${API_URL}?_limit=10`) 
-    tasks.value = res.data.map(task => ({ ...task, _updated: false }))
+    const res = await axios.get(`${API_URL}?_limit=10`)
+    tasks.value = res.data.map(task => ({ ...task, _updated: false, _isEditing: false, _isClientAdded: false }))
   } catch (error) {
     console.error('Error fetching tasks:', error)
   }
@@ -99,26 +116,47 @@ const addTask = async () => {
       completed: false,
       userId: 1
     })
-    tasks.value.unshift({ ...res.data, _updated: false })
+    tasks.value.unshift({ ...res.data, _updated: false, _isEditing: false, _isClientAdded: true }) // Mark as client-added
     newTask.value.title = ''
   } catch (error) {
     console.error('Error adding task:', error)
   }
 }
 
+const startEdit = (task) => {
+  task._originalTitle = task.title
+  task._isEditing = true
+}
+
+const cancelEdit = (task) => {
+  task.title = task._originalTitle
+  task._isEditing = false
+}
+
 const updateTask = async (task) => {
   const index = tasks.value.findIndex((t) => t.id === task.id)
   if (index === -1) return
 
-  try {
-    await axios.put(`${API_URL}/${task.id}`, { ...task })
-    tasks.value[index]._updated = true
-
+  if (!task._isClientAdded) { // Only fetch if not client-added
+    try {
+      await axios.put(`${API_URL}/${task.id}`, { ...task })
+      tasks.value[index]._updated = true
+      task._isEditing = false
+      setTimeout(() => {
+        tasks.value[index]._updated = false
+      }, 2000)
+    } catch (error) {
+      console.error('Error updating task:', error)
+    }
+  } else {
+    // For client-added tasks, just update locally
+    tasks.value[index].title = task.title;
+    tasks.value[index]._updated = true;
+    task._isEditing = false;
     setTimeout(() => {
-      tasks.value[index]._updated = false
-    }, 2000)
-  } catch (error) {
-    console.error('Error updating task:', error)
+      tasks.value[index]._updated = false;
+    }, 2000);
+    console.log("Local update for client-added task:", task);
   }
 }
 
