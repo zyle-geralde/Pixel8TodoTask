@@ -98,10 +98,11 @@ const API_URL = 'https://jsonplaceholder.typicode.com/todos'
 
 const tasks = ref([])
 const newTask = ref({ title: '', completed: false, userId: 1 })
+let idIndex = 0;
 
 const fetchTasks = async () => {
   try {
-    const res = await axios.get(`${API_URL}?_limit=10`)
+    const res = await axios.get(`${API_URL}?_limit=50`)
     tasks.value = res.data.map(task => ({ ...task, _updated: false, _isEditing: false, _isClientAdded: false }))
   } catch (error) {
     console.error('Error fetching tasks:', error)
@@ -116,6 +117,8 @@ const addTask = async () => {
       completed: false,
       userId: 1
     })
+    res.data.id += idIndex
+    idIndex+=1
     tasks.value.unshift({ ...res.data, _updated: false, _isEditing: false, _isClientAdded: true }) // Mark as client-added
     newTask.value.title = ''
   } catch (error) {
@@ -137,7 +140,7 @@ const updateTask = async (task) => {
   const index = tasks.value.findIndex((t) => t.id === task.id)
   if (index === -1) return
 
-  if (!task._isClientAdded) { // Only fetch if not client-added
+  if (!task._isClientAdded) {
     try {
       await axios.put(`${API_URL}/${task.id}`, { ...task })
       tasks.value[index]._updated = true
@@ -149,14 +152,13 @@ const updateTask = async (task) => {
       console.error('Error updating task:', error)
     }
   } else {
-    // For client-added tasks, just update locally
     tasks.value[index].title = task.title;
     tasks.value[index]._updated = true;
     task._isEditing = false;
     setTimeout(() => {
       tasks.value[index]._updated = false;
     }, 2000);
-    console.log("Local update for client-added task:", task);
+
   }
 }
 
